@@ -40,6 +40,9 @@ def default(val, d):
 def cast_tuple(val, depth):
     return val if isinstance(val, tuple) else (val,) * depth
 
+def pair(t):
+    return t if isinstance(t, tuple) else (t, t)
+
 class always():
     def __init__(self, val):
         self.val = val
@@ -928,19 +931,34 @@ class ViTransformerWrapper(nn.Module):
         attn_layers,
         num_classes = None,
         dropout = 0.,
-        emb_dropout = 0.
+        emb_dropout = 0.,
+        channels=3,
     ):
         super().__init__()
         assert isinstance(attn_layers, Encoder), 'attention layers must be an Encoder'
-        assert image_size % patch_size == 0, 'image dimensions must be divisible by the patch size'
+
+        #
+        image_height, image_width = pair(image_size)
+        patch_height, patch_width = pair(patch_size)
+
+        assert image_height % patch_height == 0 and image_width % patch_width == 0, 'Image dimensions must be divisible by the patch size.'
+
+        num_patches = (image_height // patch_height) * (image_width // patch_width)
+        patch_dim = channels * patch_height * patch_width
+
         dim = attn_layers.dim
-        num_patches = (image_size // patch_size) ** 2
-        patch_dim = 3 * patch_size ** 2
+
 
         self.patch_size = patch_size
 
         self.pos_embedding = nn.Parameter(torch.randn(1, num_patches + 1, dim))
-        self.patch_to_embedding = nn.Linear(patch_dim, dim)
+
+        self.patch_to_embedding = nn.Sequential(
+            Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1=patch_height, p2=patch_width),
+            nn.Linear(patch_dim, dim),
+        )
+        # self.patch_to_embedding = nn.Linear(patch_dim, dim)
+
         self.cls_token = nn.Parameter(torch.randn(1, 1, dim))
         self.dropout = nn.Dropout(emb_dropout)
 
@@ -953,10 +971,11 @@ class ViTransformerWrapper(nn.Module):
         img,
         return_embeddings = False
     ):
-        p = self.patch_size
+        # p = self.patch_size
+        patch_height, patch_width = pair(self.patch_size)
 
-        x = rearrange(img, 'b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = p, p2 = p)
-        x = self.patch_to_embedding(x)
+        # x = rearrange(img, 'b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1 = patch_height, p2 = patch_width)
+        x = self.patch_to_embedding(img)
         b, n, _ = x.shape
 
         cls_tokens = repeat(self.cls_token, '() n d -> b n d', b = b)
