@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from functools import partial
+from random import random
 
 import einx
 import torch
@@ -17,6 +18,7 @@ from x_transformers.components import (
     Residual,
     ShiftTokens,
 )
+from x_transformers.dropout import dropout_seq
 from x_transformers.feedforward import FeedForward
 from x_transformers.hyper_connections import HyperConnection
 from x_transformers.layer_intermediates import LayerIntermediates

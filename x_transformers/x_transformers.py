@@ -42,7 +42,6 @@ from x_transformers.utils import (
     groupby_prefix_and_trim,
     log,
     masked_mean,
-    max_neg_value,
     pad_at_dim,
     pick_and_pop,
 )
@@ -87,52 +86,20 @@ def calc_z_loss(pre_softmax_attns: list[Tensor], mask=None, weight=1.0):
     return loss * weight
 
 
-# structured dropout, more effective than traditional attention dropouts
-
-
-def dropout_seq(seq, mask, dropout):
-    b, n, *_, device = *seq.shape, seq.device
-    logits = torch.randn(b, n, device=device)
-
-    if exists(mask):
-        mask_value = max_neg_value(logits)
-        logits = logits.masked_fill(~mask, mask_value)
-
-    keep_prob = 1.0 - dropout
-    num_keep = max(1, int(keep_prob * n))
-    keep_indices = logits.topk(num_keep, dim=1).indices
-
-    batch_indices = arange(b, device=device)
-    batch_indices = rearrange(batch_indices, "b -> b 1")
-
-    seq = seq[batch_indices, keep_indices]
-
-    if exists(mask):
-        seq_counts = mask.sum(dim=-1)
-        seq_keep_counts = torch.ceil(seq_counts * keep_prob).int()
-        keep_mask = arange(num_keep, device=device) < rearrange(
-            seq_keep_counts, "b -> b 1"
-        )
-
-        mask = mask[batch_indices, keep_indices] & keep_mask
-
-    return seq, mask
-
-
 class Encoder(AttentionLayers):
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         assert "causal" not in kwargs, "cannot set causality on encoder"
         super().__init__(causal=False, **kwargs)
 
 
 class Decoder(AttentionLayers):
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         assert "causal" not in kwargs, "cannot set causality on decoder"
         super().__init__(causal=True, **kwargs)
 
 
 class PrefixDecoder(AttentionLayers):
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs) -> None:
         assert "causal" not in kwargs, "cannot set causality on decoder"
         super().__init__(causal=False, **kwargs)
 
