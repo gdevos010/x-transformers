@@ -1,16 +1,16 @@
 import math
-from random import random
-from contextlib import nullcontext
+
 from collections import namedtuple
+from contextlib import nullcontext
+from random import random
 
 import torch
 import torch.nn.functional as F
-from torch import nn
 
 from einops import rearrange
+from torch import nn
 
 from x_transformers.x_transformers import TransformerWrapper
-from typing import Optional
 
 # constants
 
@@ -111,8 +111,7 @@ class SelfCritic(nn.Module):
 
 
 class NonAutoregressiveWrapper(nn.Module):
-    """
-    https://arxiv.org/abs/1904.09324
+    """https://arxiv.org/abs/1904.09324
     https://arxiv.org/abs/2202.04200
     """
 
@@ -128,7 +127,7 @@ class NonAutoregressiveWrapper(nn.Module):
         random_token_prob=0.1,  # which percentage of tokens to be replaced with random token, done in original MLM paper
         schedule="linear",
         can_mask_prev_unmasked=False,  # when unmasking, whether it can remask previously unmasked
-        token_critic: Optional[TransformerWrapper] = None,
+        token_critic: TransformerWrapper | None = None,
         self_token_critic=False,
         critic_loss_weight=1.0,
     ):
@@ -217,7 +216,7 @@ class NonAutoregressiveWrapper(nn.Module):
         last_embed = self.null_embed if has_self_cond else None
 
         for mask_num_tokens, steps_until_x0 in zip(
-            all_mask_num_tokens.tolist(), reversed(range(self.steps))
+            all_mask_num_tokens.tolist(), reversed(range(self.steps)), strict=False
         ):
             self_cond = self.to_self_cond(last_embed) if has_self_cond else None
 

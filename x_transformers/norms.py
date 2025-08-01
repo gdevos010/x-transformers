@@ -1,10 +1,11 @@
-from torch.nn import Module
-from torch import nn, tensor
-import torch.nn.functional as F
 import torch
+import torch.nn.functional as F
 
 from einops import rearrange
-from x_transformers.utils import default, LinearNoBias
+from torch import nn, tensor
+from torch.nn import Module
+
+from x_transformers.utils import LinearNoBias, default
 
 # norms
 
@@ -27,9 +28,7 @@ class Scale(Module):
 
 class LayerNorm(Module):
     def __init__(self, dim, unit_offset=False):
-        """
-        bias-less layernorm has been shown to be more stable. most newer models have moved towards rmsnorm, also bias-less
-        """
+        """bias-less layernorm has been shown to be more stable. most newer models have moved towards rmsnorm, also bias-less"""
         super().__init__()
         self.unit_offset = unit_offset
 

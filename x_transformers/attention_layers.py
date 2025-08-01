@@ -1,80 +1,59 @@
 from __future__ import annotations
-from collections.abc import Callable
-from copy import deepcopy
-
-
-import torch
-import torch.nn.functional as F
-from torch import Tensor, nn, cat, arange
-from torch.nn import Module, ModuleList
 
 from functools import partial
+
+import einx
+import torch
+
+from einops import rearrange, reduce
 from loguru import logger
+from torch import Tensor, arange, nn
+from torch.nn import Module, ModuleList
+
 from x_transformers.attention import Attention
+from x_transformers.components import (
+    ConcatCombine,
+    GRUGating,
+    Residual,
+    ShiftTokens,
+)
 from x_transformers.feedforward import FeedForward
 from x_transformers.hyper_connections import HyperConnection
-from x_transformers.lime import DynamicLIMe
 from x_transformers.layer_intermediates import LayerIntermediates
 from x_transformers.layer_scale import AdaptiveLayerScale, LayerScale
-from x_transformers.norms import Scale
-
-from x_transformers.postional_embeddings import (
-    CoPE,
-    DataDependentAlibi,
-    DynamicPositionBias,
-    PerRowDataDependentAlibi,
-    AlibiPositionalBias,
-    RelativePositionBias,
-    RotaryEmbedding,
-    apply_rotary_pos_emb,
-)
-from einops import rearrange, repeat, reduce, pack, unpack
-from x_transformers.attend import Attend, Intermediates
-from x_transformers.utils import (
-    DEFAULT_DIM_HEAD,
-    at_most_one_of,
-    cast_tuple,
-    equals,
-    exists,
-    default,
-    first,
-    divisible_by,
-    groupby_prefix_and_trim,
-    init_zero_,
-    l2norm,
-    maybe,
-    always,
-    max_neg_value,
-    log,
-    not_equals,
-    or_reduce,
-    softclamp,
-    LinearNoBias,
-    pad_at_dim,
-)
-import einx
-from einops.layers.torch import Rearrange
-from einops import rearrange, repeat, pack, unpack
+from x_transformers.lime import DynamicLIMe
 from x_transformers.norms import (
     AdaptiveLayerNorm,
     AdaptiveRMSNorm,
     DynamicTanh,
     LayerNorm,
-    MultiheadRMSNorm,
     RMSNorm,
     Scale,
     ScaleNorm,
     SimpleRMSNorm,
 )
-from x_transformers.components import (
-    ConcatCombine,
-    FoldAxially,
-    GRUGating,
-    Residual,
-    ShiftTokens,
+from x_transformers.postional_embeddings import (
+    AlibiPositionalBias,
+    DynamicPositionBias,
+    RelativePositionBias,
+    RotaryEmbedding,
+)
+from x_transformers.utils import (
+    DEFAULT_DIM_HEAD,
+    LinearNoBias,
+    at_most_one_of,
+    cast_tuple,
+    default,
+    divisible_by,
+    equals,
+    exists,
+    first,
+    groupby_prefix_and_trim,
+    maybe,
+    not_equals,
+    softclamp,
 )
 
-from torch.utils._pytree import tree_flatten
 
 class AttentionLayers(Module):
     def __init__(
@@ -536,7 +515,7 @@ class AttentionLayers(Module):
         # iterate and construct layers
 
         for ind, (layer_type, layer_shift_tokens) in enumerate(
-            zip(self.layer_types, shift_tokens)
+            zip(self.layer_types, shift_tokens, strict=False)
         ):
             # `ind` is the index of each module - attention, feedforward, cross attention
             # but `block_ind` refers to the typical enumeration of a transformer block (attn + ff + [optional] cross attn)
@@ -874,7 +853,7 @@ class AttentionLayers(Module):
             (norm, block, residual_fn),
             layer_dropout,
             layer_integrator,
-        ) in enumerate(zip(*layer_variables)):
+        ) in enumerate(zip(*layer_variables, strict=False)):
             is_last = ind == (len(self.layers) - 1)
 
             # handle skip connections
@@ -1028,4 +1007,3 @@ class AttentionLayers(Module):
         )
 
         return x, intermediates
-

@@ -1,8 +1,8 @@
 import torch
+
+from einops import einsum, pack, rearrange, repeat, unpack
 from torch import nn, pi
 from torch.nn import Module
-
-from einops import rearrange, repeat, einsum, pack, unpack
 
 from x_transformers.x_transformers import Encoder
 

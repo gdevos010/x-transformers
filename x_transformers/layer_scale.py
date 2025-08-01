@@ -1,10 +1,11 @@
 # post branch operator
 import torch
-from torch.nn import Module
-from torch import nn
-from torch import Tensor
-from x_transformers.utils import default
+
 from einops import rearrange
+from torch import Tensor, nn
+from torch.nn import Module
+
+from x_transformers.utils import default
 
 
 class LayerScale(Module):
@@ -29,7 +30,9 @@ class LayerScale(Module):
 
 
 class AdaptiveLayerScale(Module):
-    def __init__(self, fn: Module, dim, dim_condition=None, init_bias_value=-2.0) -> None:
+    def __init__(
+        self, fn: Module, dim, dim_condition=None, init_bias_value=-2.0
+    ) -> None:
         super().__init__()
         self.fn = fn
 

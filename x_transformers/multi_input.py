@@ -1,21 +1,22 @@
 from __future__ import annotations
+
 import math
 
 import torch
-from torch import nn, Tensor
-from torch.nn import Module, ModuleDict
-
-from typing import Dict
 
 from einops import pack, repeat, unpack
-from x_transformers.x_transformers import Decoder, calc_z_loss
-from x_transformers.utils import always, is_empty, exists, default
+from torch import Tensor, nn
+from torch.nn import Module, ModuleDict
 
 from x_transformers.attention_layers import AttentionLayers
-from x_transformers.postional_embeddings import ScaledSinusoidalEmbedding, AbsolutePositionalEmbedding
 from x_transformers.layer_intermediates import LayerIntermediates
 from x_transformers.norms import LayerNorm
-from x_transformers.utils import pad_at_dim
+from x_transformers.postional_embeddings import (
+    AbsolutePositionalEmbedding,
+    ScaledSinusoidalEmbedding,
+)
+from x_transformers.utils import always, default, exists, is_empty, pad_at_dim
+from x_transformers.x_transformers import Decoder, calc_z_loss
 
 # helper functions
 
@@ -24,7 +25,7 @@ class MultiInputTransformerWrapper(Module):
     def __init__(
         self,
         *,
-        num_tokens: Dict[str, int] = dict(),
+        num_tokens: dict[str, int] = dict(),
         max_seq_len,
         attn_layers: AttentionLayers,
         emb_dim=None,
@@ -108,7 +109,7 @@ class MultiInputTransformerWrapper(Module):
 
     def forward(
         self,
-        x: Dict[str, Tensor],
+        x: dict[str, Tensor],
         return_embeddings=False,
         return_logits_and_embeddings=False,
         return_intermediates=False,
@@ -295,7 +296,7 @@ class MultiInputTransformerWrapper(Module):
         if return_mems:
             hiddens = intermediates.hiddens
             new_mems = (
-                [torch.cat(pair, dim=-2) for pair in zip(mems, hiddens)]
+                [torch.cat(pair, dim=-2) for pair in zip(mems, hiddens, strict=False)]
                 if exists(mems)
                 else hiddens
             )

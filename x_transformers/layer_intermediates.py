@@ -1,6 +1,8 @@
-from torch import Tensor
-from x_transformers.attend import Intermediates
 from dataclasses import dataclass
+
+from torch import Tensor
+
+from x_transformers.attend import Intermediates
 
 
 @dataclass

@@ -1,30 +1,30 @@
 # positional embeddings
 
 from __future__ import annotations
-from torch._tensor import Tensor
 
 import math
 
+import einx
 import torch
-from torch.amp import autocast
 import torch.nn.functional as F
-from torch import nn, einsum, Tensor, cat, stack, arange
+
+from einops import rearrange
+from einops.layers.torch import Rearrange
+from torch import Tensor, arange, cat, einsum, nn, stack
+from torch._tensor import Tensor
+from torch.amp import autocast
 from torch.nn import Module, ModuleList
 
-
-from x_transformers.utils import (
-    exists,
-    default,
-    divisible_by,
-    Sequential,
-    l2norm,
-    pad_at_dim,
-)
-import einx
-from einops.layers.torch import Rearrange
-from einops import rearrange
 from x_transformers.norms import (
     LayerNorm,
+)
+from x_transformers.utils import (
+    Sequential,
+    default,
+    divisible_by,
+    exists,
+    l2norm,
+    pad_at_dim,
 )
 
 
@@ -139,9 +139,7 @@ class RelativePositionBias(Module):
 
 
 class CoPE(Module):
-    """
-    Appendix B of https://arxiv.org/abs/2405.18719
-    """
+    """Appendix B of https://arxiv.org/abs/2405.18719"""
 
     def __init__(
         self,

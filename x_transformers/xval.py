@@ -1,28 +1,26 @@
-"""
-regular transformer with discrete tokens, but continuous for number
+"""regular transformer with discrete tokens, but continuous for number
 generalizes better for arithmetic
 https://arxiv.org/abs/2310.02989
 """
 
+from collections import namedtuple
+from collections.abc import Callable
+
 import torch
-from torch import nn, Tensor
 import torch.nn.functional as F
 
-from typing import Callable
-from collections import namedtuple
-
-from einops import rearrange, repeat, pack, unpack
+from einops import pack, rearrange, repeat, unpack
 from einops.layers.torch import Rearrange
-
-from x_transformers.x_transformers import (
-    AttentionLayers,
-    TokenEmbedding,
-    ScaledSinusoidalEmbedding,
-    AbsolutePositionalEmbedding,
-    always,
-)
+from torch import Tensor, nn
 
 from x_transformers.autoregressive_wrapper import top_k
+from x_transformers.x_transformers import (
+    AbsolutePositionalEmbedding,
+    AttentionLayers,
+    ScaledSinusoidalEmbedding,
+    TokenEmbedding,
+    always,
+)
 
 # constants
 
@@ -278,7 +276,7 @@ class XValAutoregressiveWrapper(nn.Module):
 
         # key padding mask
 
-        mask = kwargs.get("mask", None)
+        mask = kwargs.get("mask")
         if exists(mask):
             target_mask &= mask
 

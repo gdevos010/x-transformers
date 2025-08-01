@@ -1,18 +1,16 @@
 from __future__ import annotations
 
-from functools import partial
-from typing import Tuple, Callable
+from collections.abc import Callable
+from dataclasses import dataclass
+from functools import partial, wraps
 
 import torch
-from torch.nn import Module
-from torch import nn, einsum, Tensor
 import torch.nn.functional as F
 
-from functools import wraps
+from einops import pack, rearrange, repeat, unpack
 from packaging import version
-from dataclasses import dataclass
-
-from einops import rearrange, repeat, pack, unpack
+from torch import Tensor, einsum, nn
+from torch.nn import Module
 
 # constants
 
@@ -23,7 +21,7 @@ class Intermediates:
     pre_softmax_attn: Tensor | None = None
     post_softmax_attn: Tensor | None = None
     values: Tensor | None = None
-    cached_kv: Tuple[Tensor, Tensor] | None = None
+    cached_kv: tuple[Tensor, Tensor] | None = None
     layer_type: str | None = None
     hybrid_hidden: Tensor | None = None
 
@@ -463,14 +461,12 @@ class Attend(Module):
         return out, Intermediates()
 
     def forward(self, q, k, v, mask=None, attn_bias=None, prev_attn=None):
-        """
-        einstein notation
+        """Einstein notation
         b - batch
         h - heads
         n, i, j - sequence length (base sequence length, source, target)
         d - feature dimension
         """
-
         n, heads, kv_heads, device = q.shape[-2], q.shape[1], k.shape[1], q.device
 
         scale = default(self.scale, q.shape[-1] ** -0.5)

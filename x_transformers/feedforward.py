@@ -1,15 +1,13 @@
-from typing import Callable
-
+from collections.abc import Callable
 from copy import deepcopy
 
 import torch
-from torch import nn, Tensor
+
+from torch import Tensor, nn
 from torch.nn import Module
 
-
 from x_transformers.activations import ReluSquared
-from x_transformers.utils import exists, init_zero_, default, Sequential
-
+from x_transformers.utils import Sequential, default, exists, init_zero_
 
 # feedforward
 

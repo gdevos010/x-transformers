@@ -1,14 +1,15 @@
 from __future__ import annotations
+
 from itertools import zip_longest
 
+import einx
 import torch
-from torch import tensor
 import torch.nn.functional as F
+
+from einops import pack, rearrange, repeat, unpack
+from torch import tensor
 from torch.nn import Module
 from torch.nn.utils.rnn import pad_sequence
-
-import einx
-from einops import repeat, rearrange, pack, unpack
 
 # helper functions
 

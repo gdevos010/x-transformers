@@ -4,24 +4,24 @@
 # https://www.youtube.com/watch?v=aqhbRtB2Fyg
 
 from __future__ import annotations
+
 from random import random
 
+import einx
 import torch
+import torch.nn.functional as F
+
+from einops import pack, rearrange, repeat, unpack
+from einops.layers.torch import Rearrange
+from torch import Tensor, arange, cartesian_prod, cat, nn, tensor
 from torch.autograd import Function
 from torch.nn import Module
-from torch import nn, cat, tensor, Tensor, arange, cartesian_prod
-import torch.nn.functional as F
 
 from x_transformers.autoregressive_wrapper import (
     eval_decorator,
     min_p,
 )
-
 from x_transformers.x_transformers import TransformerWrapper
-
-import einx
-from einops import rearrange, repeat, pack, unpack
-from einops.layers.torch import Rearrange
 
 # helper functions
 
@@ -79,9 +79,7 @@ detach_multiple = DetachMultiple.apply
 
 
 class BeliefStateWrapper(Module):
-    """
-    Figure 13. in https://arxiv.org/abs/2410.23506
-    """
+    """Figure 13. in https://arxiv.org/abs/2410.23506"""
 
     def __init__(
         self,

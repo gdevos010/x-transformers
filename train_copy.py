@@ -1,6 +1,8 @@
-import tqdm
 import torch
-import torch.optim as optim
+import tqdm
+
+from torch import optim
+
 from x_transformers import XTransformer
 
 # constants

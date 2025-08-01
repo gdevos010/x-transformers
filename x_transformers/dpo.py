@@ -1,11 +1,12 @@
 from copy import deepcopy
 
-import torch
-from torch.nn import Module
-import torch.nn.functional as F
-from x_transformers.x_transformers import TransformerWrapper
-
 import einx
+import torch
+import torch.nn.functional as F
+
+from torch.nn import Module
+
+from x_transformers.x_transformers import TransformerWrapper
 
 # helper functions
 

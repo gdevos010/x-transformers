@@ -2,14 +2,16 @@
 # Peter Bloem
 
 from __future__ import annotations
+
 from functools import partial
 from random import randrange, uniform
 
 import torch
-from torch import nn, cat, tensor, randperm
-from torch.nn import LSTM, GRU, Module
 
-from x_transformers.x_transformers import TransformerWrapper, AutoregressiveWrapper
+from torch import cat, nn, randperm, tensor
+from torch.nn import GRU, LSTM, Module
+
+from x_transformers.x_transformers import AutoregressiveWrapper, TransformerWrapper
 
 # functions
 

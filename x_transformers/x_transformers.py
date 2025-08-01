@@ -1,49 +1,52 @@
 from __future__ import annotations
-from torch._tensor import Tensor
 
 import math
+
+from contextlib import nullcontext
 from random import randrange
 
 import torch
-from torch.amp import autocast
 import torch.nn.functional as F
-from torch import nn, einsum, Tensor, cat, arange
-from torch.nn import Module, ModuleList, ModuleDict
 
-from contextlib import nullcontext
+from einops import pack, rearrange, reduce, repeat, unpack
+from einops.layers.torch import Rearrange
+from torch import Tensor, arange, cat, einsum, nn
+from torch._tensor import Tensor
+from torch.amp import autocast
+from torch.nn import Module, ModuleDict, ModuleList
 
+from x_transformers.attention import Attention
+from x_transformers.attention_layers import AttentionLayers
+from x_transformers.autoregressive_wrapper import AutoregressiveWrapper
+from x_transformers.components import (
+    TokenEmbedding,
+)
+from x_transformers.layer_intermediates import LayerIntermediates
+from x_transformers.norms import (
+    LayerNorm,
+)
 from x_transformers.postional_embeddings import (
     AbsolutePositionalEmbedding,
     ScaledSinusoidalEmbedding,
 )
-from x_transformers.autoregressive_wrapper import AutoregressiveWrapper
 from x_transformers.utils import (
-    exists,
-    default,
-    first,
-    cast_tuple,
-    divisible_by,
-    at_most_one_of,
-    always,
+    LinearNoBias,
     Sequential,
+    always,
+    at_most_one_of,
+    cast_tuple,
+    default,
+    divisible_by,
+    exists,
+    first,
     groupby_prefix_and_trim,
+    log,
     masked_mean,
     max_neg_value,
-    log,
     pad_at_dim,
-    LinearNoBias,
     pick_and_pop,
 )
-from einops.layers.torch import Rearrange
-from einops import rearrange, repeat, reduce, pack, unpack
-from x_transformers.norms import (
-    LayerNorm,
-)
-from x_transformers.components import (
-    TokenEmbedding,
-)
-from x_transformers.attention import Attention
-from x_transformers.attention_layers import AttentionLayers
+
 # einstein notation
 
 # b - batch
@@ -933,7 +936,7 @@ class TransformerWrapper(Module):
         if return_mems:
             hiddens = intermediates.hiddens
             new_mems = (
-                [cat(pair, dim=-2) for pair in zip(mems, hiddens)]
+                [cat(pair, dim=-2) for pair in zip(mems, hiddens, strict=False)]
                 if exists(mems)
                 else hiddens
             )

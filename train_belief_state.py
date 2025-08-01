@@ -1,12 +1,14 @@
-from x_transformers import TransformerWrapper, Decoder, BeliefStateWrapper
-
-import random
-import tqdm
 import gzip
+import random
+
 import numpy as np
 import torch
-import torch.optim as optim
+import tqdm
+
+from torch import optim
 from torch.utils.data import DataLoader, Dataset
+
+from x_transformers import BeliefStateWrapper, Decoder, TransformerWrapper
 
 # constants
 

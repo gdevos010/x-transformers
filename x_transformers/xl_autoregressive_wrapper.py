@@ -1,9 +1,10 @@
 import torch
-from torch import nn
 import torch.nn.functional as F
 
-from einops import rearrange, pack, unpack
-from x_transformers.autoregressive_wrapper import top_k, eval_decorator
+from einops import pack, rearrange, unpack
+from torch import nn
+
+from x_transformers.autoregressive_wrapper import eval_decorator, top_k
 
 # helper functions
 
@@ -127,7 +128,7 @@ class XLAutoregressiveWrapper(nn.Module):
         total_loss = 0.0
 
         for chunk, chunk_labels, loss_weight in zip(
-            split_x, split_labels, loss_weights
+            split_x, split_labels, loss_weights, strict=False
         ):
             logits, mems = self.net(chunk, mems=mems, return_mems=True, **kwargs)
 

@@ -1,13 +1,13 @@
-from torch.nn import Module
-from torch import nn
-from torch import Tensor
-from x_transformers.utils import exists, l2norm, pad_at_dim, LinearNoBias
-from einops import rearrange
-from torch import cat
 import math
-from torch.utils._pytree import tree_flatten, tree_unflatten
+
 import torch
 
+from einops import rearrange
+from torch import Tensor, cat, nn
+from torch.nn import Module
+from torch.utils._pytree import tree_flatten, tree_unflatten
+
+from x_transformers.utils import LinearNoBias, exists, l2norm, pad_at_dim
 
 # embedding
 
@@ -95,14 +95,15 @@ class ShiftTokens(Module):
         self.shifts = tuple(shifts)
 
     def forward(self, x, **kwargs):
-        mask = kwargs.get("mask", None)
+        mask = kwargs.get("mask")
         shifts = self.shifts
         segments = len(shifts)
         feats_per_shift = x.shape[-1] // segments
         splitted = x.split(feats_per_shift, dim=-1)
         segments_to_shift, rest = splitted[:segments], splitted[segments:]
         segments_to_shift = [
-            shift(*args, mask=mask) for args in zip(segments_to_shift, shifts)
+            shift(*args, mask=mask)
+            for args in zip(segments_to_shift, shifts, strict=False)
         ]
         x = cat((*segments_to_shift, *rest), dim=-1)
         return self.fn(x, **kwargs)

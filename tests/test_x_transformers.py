@@ -1,20 +1,18 @@
 import pytest
-
 import torch
+
 from torch import nn
 from torch.nn import Module
 
-from x_transformers.x_transformers import (
-    XTransformer,
-    TransformerWrapper,
-    Encoder,
-    Decoder,
-    LinearNoBias,
-)
-
-from x_transformers.neo_mlp import NeoMLP
-
 from x_transformers.multi_input import MultiInputTransformerWrapper
+from x_transformers.neo_mlp import NeoMLP
+from x_transformers.x_transformers import (
+    Decoder,
+    Encoder,
+    LinearNoBias,
+    TransformerWrapper,
+    XTransformer,
+)
 
 
 def test_readme():
@@ -412,8 +410,7 @@ def test_embedder(embedder_type):
     else:
 
         class CustomEmbedder(Module):
-            """
-            Made up embedder that sums two embeddings. Just to check if we can pass additional input to the embedder's
+            """Made up embedder that sums two embeddings. Just to check if we can pass additional input to the embedder's
             forward pass without breaking the model.
             """
 
@@ -663,6 +660,7 @@ def test_caching_when_inputs_not_include_past():
 
 def test_caching_when_inputs_not_include_past_continuous():
     from torch.nn import GRU
+
     from x_transformers.continuous import ContinuousTransformerWrapper
 
     model = ContinuousTransformerWrapper(
@@ -911,9 +909,9 @@ def test_ff_deep_embed():
 @pytest.mark.parametrize("rollout_steps", (1, 4))
 def test_continuous(probabilistic, cache_kv, rollout_steps):
     from x_transformers import (
+        ContinuousAutoregressiveWrapper,
         ContinuousTransformerWrapper,
         Decoder,
-        ContinuousAutoregressiveWrapper,
     )
 
     model = ContinuousTransformerWrapper(
@@ -1044,7 +1042,7 @@ def test_up(keep_buffer_on_cpu):
 
 @pytest.mark.parametrize("stochastic", (False, True))
 def test_beam_search(stochastic):
-    from x_transformers import TransformerWrapper, Decoder, AutoregressiveWrapper
+    from x_transformers import AutoregressiveWrapper, Decoder, TransformerWrapper
 
     model = TransformerWrapper(
         num_tokens=256,

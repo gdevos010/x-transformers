@@ -1,15 +1,15 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from math import ceil, log
-from typing import Tuple, Callable
 
 import torch
-from torch import tensor, Tensor
-from torch.nn import Module
 import torch.nn.functional as F
-from torch.nn.utils.rnn import pad_sequence
 
-from einops import rearrange, repeat, pack, unpack
+from einops import pack, rearrange, repeat, unpack
+from torch import Tensor, tensor
+from torch.nn import Module
+from torch.nn.utils.rnn import pad_sequence
 
 
 def exists(val):
@@ -152,11 +152,9 @@ FILTER_LOGITS_FN = dict(top_p=top_p, top_k=top_k, top_a=top_a, min_p=min_p)
 
 
 def contrastive_decode_fn(expert_logits, amateur_logits, alpha=0.1, beta=0.5):
-    """
-    Appendix A Algorithm 2
+    """Appendix A Algorithm 2
     https://arxiv.org/abs/2309.09117
     """
-
     cutoff = log(alpha) + expert_logits.amax(dim=-1, keepdim=True)
     diffs = (1 + beta) * expert_logits - beta * amateur_logits
     contrastive_decode_logits = diffs.masked_fill(
@@ -398,9 +396,9 @@ class AutoregressiveWrapper(Module):
         prompt_lens: Tensor | None = None,
         filter_logits_fn: str | Callable = top_k,
         restrict_to_max_seq_len=True,
-        amateur_model: Module | Tuple[Module] | None = None,
+        amateur_model: Module | tuple[Module] | None = None,
         filter_kwargs: dict = dict(),
-        contrastive_decode_kwargs: dict | Tuple[dict] = dict(beta=0.5, alpha=0.1),
+        contrastive_decode_kwargs: dict | tuple[dict] = dict(beta=0.5, alpha=0.1),
         cache_kv=True,
         **kwargs,
     ):
@@ -512,7 +510,12 @@ class AutoregressiveWrapper(Module):
                     amateur_cache,
                     amateur_contrastive_decode_kwargs,
                 ) in enumerate(
-                    zip(amateur_model, amateur_caches, contrastive_decode_kwargs)
+                    zip(
+                        amateur_model,
+                        amateur_caches,
+                        contrastive_decode_kwargs,
+                        strict=False,
+                    )
                 ):
                     amateur_logits, next_amateur_cache = amateur(
                         x,

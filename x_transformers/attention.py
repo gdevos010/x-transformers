@@ -1,52 +1,51 @@
 # attention. it is all we need
 from __future__ import annotations
+
 from collections.abc import Callable
 from copy import deepcopy
-
-
-import torch
-import torch.nn.functional as F
-from torch import nn, cat, arange
-from torch.nn import Module, ModuleList
-
 from functools import partial
 
-from x_transformers.postional_embeddings import (
-    CoPE,
-    DataDependentAlibi,
-    PerRowDataDependentAlibi,
-    AlibiPositionalBias,
-    apply_rotary_pos_emb,
-)
-from x_transformers.attend import Attend, Intermediates
-from x_transformers.utils import (
-    DEFAULT_DIM_HEAD,
-    exists,
-    default,
-    first,
-    divisible_by,
-    init_zero_,
-    l2norm,
-    maybe,
-    always,
-    max_neg_value,
-    log,
-    or_reduce,
-    softclamp,
-    LinearNoBias,
-    pad_at_dim,
-)
 import einx
+import torch
+import torch.nn.functional as F
+
+from einops import pack, rearrange, repeat, unpack
 from einops.layers.torch import Rearrange
-from einops import rearrange, repeat, pack, unpack
-from x_transformers.norms import (
-    MultiheadRMSNorm,
-)
+from torch import arange, cat, nn
+from torch.nn import Module, ModuleList
+from torch.utils._pytree import tree_flatten
+
+from x_transformers.attend import Attend, Intermediates
 from x_transformers.components import (
     FoldAxially,
 )
-
-from torch.utils._pytree import tree_flatten
+from x_transformers.norms import (
+    MultiheadRMSNorm,
+)
+from x_transformers.postional_embeddings import (
+    AlibiPositionalBias,
+    CoPE,
+    DataDependentAlibi,
+    PerRowDataDependentAlibi,
+    apply_rotary_pos_emb,
+)
+from x_transformers.utils import (
+    DEFAULT_DIM_HEAD,
+    LinearNoBias,
+    always,
+    default,
+    divisible_by,
+    exists,
+    first,
+    init_zero_,
+    l2norm,
+    log,
+    max_neg_value,
+    maybe,
+    or_reduce,
+    pad_at_dim,
+    softclamp,
+)
 
 
 class Attention(Module):

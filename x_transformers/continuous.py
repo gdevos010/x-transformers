@@ -1,23 +1,22 @@
 from __future__ import annotations
 
+import einx
 import torch
-from torch import nn, cat, stack, arange
-from torch.nn import Module
 import torch.nn.functional as F
 
-import einx
-from einops import rearrange, reduce, pack, repeat, unpack
+from einops import pack, rearrange, reduce, repeat, unpack
+from torch import arange, cat, nn, stack
+from torch.nn import Module
 
 from x_transformers.autoregressive_wrapper import align_right
-
 from x_transformers.x_transformers import (
+    AbsolutePositionalEmbedding,
     Attention,
     AttentionLayers,
-    ScaledSinusoidalEmbedding,
-    AbsolutePositionalEmbedding,
     LayerNorm,
-    masked_mean,
+    ScaledSinusoidalEmbedding,
     always,
+    masked_mean,
     pad_at_dim,
 )
 
@@ -475,7 +474,7 @@ class ContinuousAutoregressiveWrapper(Module):
 
         # mask
 
-        mask = kwargs.get("mask", None)
+        mask = kwargs.get("mask")
 
         if exists(mask) and mask.shape[1] == x.shape[1]:
             mask = mask[:, :-1]

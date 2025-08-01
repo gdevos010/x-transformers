@@ -1,8 +1,8 @@
-import tqdm
 import torch
 import torch.nn.functional as F
+import tqdm
 
-from x_transformers import TransformerWrapper, Decoder
+from x_transformers import Decoder, TransformerWrapper
 
 # constants
 

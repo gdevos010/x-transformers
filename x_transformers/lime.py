@@ -1,18 +1,16 @@
 # LIMe - layer integrated memory (dynamic version)
-from torch.functional import Tensor
-
-
-from einops.layers.torch import Rearrange
 from einops import rearrange
-from x_transformers.utils import (
-    Sequential,
-)
-from torch import nn
+from einops.layers.torch import Rearrange
+from torch import einsum, is_tensor, nn, stack
+from torch.functional import Tensor
 from torch.nn import Module
+
 from x_transformers.norms import (
     RMSNorm,
 )
-from torch import einsum, stack, is_tensor
+from x_transformers.utils import (
+    Sequential,
+)
 
 
 class DynamicLIMe(Module):

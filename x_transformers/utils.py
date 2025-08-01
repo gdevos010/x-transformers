@@ -1,13 +1,14 @@
 # init helpers
 
 
-from torch._tensor import Tensor
-from torch import nn
 from functools import partial, wraps
+
 import torch
 import torch.nn.functional as F
-from einops import rearrange
 
+from einops import rearrange
+from torch import nn
+from torch._tensor import Tensor
 
 # constants
 
@@ -155,7 +156,7 @@ LinearNoBias = partial(nn.Linear, bias=False)
 
 def pick_and_pop(keys, d):
     values = tuple(d.pop(key) for key in keys)
-    return dict(zip(keys, values))
+    return dict(zip(keys, values, strict=False))
 
 
 def group_dict_by_key(cond, d):

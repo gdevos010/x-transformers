@@ -1,9 +1,9 @@
 # hyper connections
-from einops import rearrange
-from torch import nn
-from torch import einsum, cat
-from torch.nn import Module
 import torch
+
+from einops import rearrange
+from torch import cat, einsum, nn
+from torch.nn import Module
 
 
 class HyperConnection(Module):
@@ -17,8 +17,7 @@ class HyperConnection(Module):
         tanh=True,
         **kwargs,
     ) -> None:
-        """
-        https://arxiv.org/abs/2409.19606
+        """https://arxiv.org/abs/2409.19606
         Appendix J - Algorithm 2, Dynamic only
         """
         super().__init__()

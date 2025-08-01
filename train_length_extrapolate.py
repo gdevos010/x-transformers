@@ -1,13 +1,15 @@
-from x_transformers import TransformerWrapper, Decoder
-from x_transformers.autoregressive_wrapper import AutoregressiveWrapper
-
-import random
-import tqdm
 import gzip
+import random
+
 import numpy as np
 import torch
-import torch.optim as optim
+import tqdm
+
+from torch import optim
 from torch.utils.data import DataLoader, Dataset
+
+from x_transformers import Decoder, TransformerWrapper
+from x_transformers.autoregressive_wrapper import AutoregressiveWrapper
 
 # constants
 
