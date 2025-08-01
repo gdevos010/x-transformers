@@ -1,4 +1,5 @@
 from __future__ import annotations
+import math
 
 import torch
 from torch import nn, Tensor
@@ -7,16 +8,14 @@ from torch.nn import Module, ModuleDict
 from typing import Dict
 
 from einops import pack, repeat, unpack
+from x_transformers.x_transformers import Decoder, calc_z_loss
 from x_transformers.utils import always, is_empty, exists, default
 
-from x_transformers.x_transformers import (
-    AttentionLayers,
-    ScaledSinusoidalEmbedding,
-    AbsolutePositionalEmbedding,
-    LayerIntermediates,
-    LayerNorm,
-    pad_at_dim,
-)
+from x_transformers.attention_layers import AttentionLayers
+from x_transformers.postional_embeddings import ScaledSinusoidalEmbedding, AbsolutePositionalEmbedding
+from x_transformers.layer_intermediates import LayerIntermediates
+from x_transformers.norms import LayerNorm
+from x_transformers.utils import pad_at_dim
 
 # helper functions
 

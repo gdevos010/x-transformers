@@ -4,13 +4,9 @@ import torch.nn.functional as F
 import torch
 
 from einops import rearrange
-from x_transformers.utils import default
-from functools import partial
+from x_transformers.utils import default, LinearNoBias
 
 # norms
-
-
-LinearNoBias = partial(nn.Linear, bias=False)
 
 
 class Scale(Module):

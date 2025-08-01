@@ -3,10 +3,16 @@
 
 from torch._tensor import Tensor
 from torch import nn
-from functools import wraps
+from functools import partial, wraps
 import torch
 import torch.nn.functional as F
 from einops import rearrange
+
+
+# constants
+
+DEFAULT_DIM_HEAD = 64
+
 
 # helpers
 
@@ -139,3 +145,42 @@ def or_reduce(masks):
     for rest in body:
         head = head | rest
     return head
+
+
+LinearNoBias = partial(nn.Linear, bias=False)
+
+
+# keyword argument helpers
+
+
+def pick_and_pop(keys, d):
+    values = tuple(d.pop(key) for key in keys)
+    return dict(zip(keys, values))
+
+
+def group_dict_by_key(cond, d):
+    return_val = [dict(), dict()]
+    for key in d.keys():
+        match = bool(cond(key))
+        ind = int(not match)
+        return_val[ind][key] = d[key]
+    return tuple(return_val)
+
+
+def string_begins_with(prefix, str):
+    return str.startswith(prefix)
+
+
+def group_by_key_prefix(prefix, d):
+    return group_dict_by_key(partial(string_begins_with, prefix), d)
+
+
+def groupby_prefix_and_trim(prefix, d):
+    kwargs_with_prefix, kwargs = group_dict_by_key(
+        partial(string_begins_with, prefix), d
+    )
+    prefix_len = len(prefix)
+    kwargs_without_prefix = {
+        key[prefix_len:]: value for key, value in kwargs_with_prefix.items()
+    }
+    return kwargs_without_prefix, kwargs
