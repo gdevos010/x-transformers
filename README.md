@@ -2427,4 +2427,36 @@ ids_out, num_out, is_number_mask = model.generate(start_ids, start_nums, 17)
 }
 ```
 
+```bibtex
+@misc{Jordan2024,
+    author       = {Keller Jordan and Braden Koszarsky},
+    title        = {modded-nanogpt (value embeddings from nanogpt speedrun)},
+    year         = {2024},
+    publisher    = {GitHub},
+    journal      = {GitHub repository},
+    howpublished = {https://github.com/KellerJordan/modded-nanogpt},
+}
+```
+
+```bibtex
+@inproceedings{Assran2025VJEPA2S,
+    title   = {V-JEPA 2: Self-Supervised Video Models Enable Understanding, Prediction and Planning},
+    author  = {Mahmoud Assran and Adrien Bardes and David Fan and Quentin Garrido and Russell Howes and Mojtaba Komeili and Matthew Muckley and Ammar Rizvi and Claire Roberts and Koustuv Sinha and Artem Zholus and Sergio Arnaud and Abha Gejji and Ada Martin and Francois Robert Hogan and Daniel Dugas and Piotr Bojanowski and Vasil Khalidov and Patrick Labatut and Francisco Massa and Marc Szafraniec and Kapil Krishnakumar and Yong Li and Xiaodong Ma and Sarath Chandar and Franziska Meier and Yann LeCun and Michael Rabbat and Nicolas Ballas and Fair at Meta and Mila - Qu{\'e}bec and AI Institute and Polytechnique Montr{\'e}al},
+    year    = {2025},
+    url     = {https://api.semanticscholar.org/CorpusID:279306055}
+}
+```
+
+```bibtex
+@misc{bloem2025universalpretrainingiteratedrandom,
+    title   = {Universal pre-training by iterated random computation}, 
+    author  = {Peter Bloem},
+    year    = {2025},
+    eprint  = {2506.20057},
+    archivePrefix = {arXiv},
+    primaryClass = {cs.LG},
+    url     = {https://arxiv.org/abs/2506.20057}, 
+}
+```
+
 *solve intelligence... then use that to solve everything else.* - Demis Hassabis

@@ -25,6 +25,7 @@ class Intermediates:
     values:             Tensor | None = None
     cached_kv:          Tuple[Tensor, Tensor] | None = None
     layer_type:         str | None = None
+    hybrid_hidden:      Tensor | None = None
 
     def to_tuple(self):
         return (self.qk_similarities, self.pre_softmax_attn, self.post_softmax_attn)
@@ -165,7 +166,7 @@ class Attend(Module):
         post_talking_heads = False,
         pre_scale_post_talking_heads = False,
         sparse_topk = None,
-        sparse_topk_straight_through = False,
+        sparse_topk_straight_through = False, # https://arxiv.org/abs/2505.22074
         scale = None,
         qk_norm = False,
         l2_distance = False,
@@ -275,21 +276,22 @@ class Attend(Module):
 
         # torch 2.3 uses new backend and context manager
 
-        if torch_version >= version.parse('2.3'):
-            from torch.nn.attention import SDPBackend
+        if self.flash:
+            if torch_version >= version.parse('2.3'):
+                from torch.nn.attention import SDPBackend
 
-            str_to_backend = dict(
-                enable_flash = SDPBackend.FLASH_ATTENTION,
-                enable_mem_efficient = SDPBackend.EFFICIENT_ATTENTION,
-                enable_math = SDPBackend.MATH,
-                enable_cudnn = SDPBackend.CUDNN_ATTENTION
-            )
+                str_to_backend = dict(
+                    enable_flash = SDPBackend.FLASH_ATTENTION,
+                    enable_mem_efficient = SDPBackend.EFFICIENT_ATTENTION,
+                    enable_math = SDPBackend.MATH,
+                    enable_cudnn = SDPBackend.CUDNN_ATTENTION
+                )
 
-            sdpa_backends = [str_to_backend[enable_str] for enable_str, enable in sdp_kwargs.items() if enable]
+                sdpa_backends = [str_to_backend[enable_str] for enable_str, enable in sdp_kwargs.items() if enable]
 
-            self.sdp_context_manager = partial(torch.nn.attention.sdpa_kernel, sdpa_backends)
-        else:
-            self.sdp_context_manager = partial(torch.backends.cuda.sdp_kernel, **sdp_kwargs)
+                self.sdp_context_manager = partial(torch.nn.attention.sdpa_kernel, sdpa_backends)
+            else:
+                self.sdp_context_manager = partial(torch.backends.cuda.sdp_kernel, **sdp_kwargs)
 
     def flash_attn(
         self,

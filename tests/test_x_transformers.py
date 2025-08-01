@@ -651,6 +651,104 @@ def test_hybrid(hybrid_axial_dim):
     mask = torch.randint(0, 2, (2, 1024)).bool()
     embed = enc(x, mask = mask)
 
+def test_hybrid_cache():
+    from torch.nn import GRU
+
+    model = TransformerWrapper(
+        num_tokens = 20000,
+        max_seq_len = 1024,
+        attn_layers = Decoder(
+            dim = 128,
+            depth = 6,
+            heads = 8,
+            attn_dim_head = 64,
+            attn_hybrid_fold_axial_dim = 1,
+            attn_hybrid_module = GRU(128, 64 * 8, batch_first = True)
+        )
+    )
+
+    x = torch.randint(0, 20000, (2, 4))
+
+    # parallel
+
+    out_parallel = model(x)
+
+    # sequential
+
+    x_without_last = x[:, :-1]
+
+    out1, cache = model(x_without_last, return_intermediates = True)
+    out2 = model(x, cache = cache)
+
+    out_seq = torch.cat((out1, out2), dim = 1)
+
+    assert torch.allclose(out_parallel, out_seq, atol = 1e-5)
+
+def test_caching_when_inputs_not_include_past():
+
+    from torch.nn import GRU
+
+    model = TransformerWrapper(
+        num_tokens = 20000,
+        max_seq_len = 1024,
+        attn_layers = Decoder(
+            dim = 128,
+            depth = 6,
+            heads = 8,
+            attn_dim_head = 64,
+            rotary_pos_emb = True,
+            attn_hybrid_fold_axial_dim = 1,
+            attn_hybrid_module = GRU(128, 64 * 8, batch_first = True)
+        )
+    )
+
+    x = torch.randint(0, 20000, (2, 4))
+
+    out_parallel = model(x)
+
+    x1, x2, x3 = x[:, :2], x[:, 2:3], x[:, 3:4]
+
+    out1, cache = model(x1, return_intermediates = True)
+    out2, cache = model(x2, cache = cache, return_intermediates = True, input_not_include_cache = True)
+    out3, cache = model(x3, cache = cache, return_intermediates = True, input_not_include_cache = True)
+
+    out_seq = torch.cat((out1, out2, out3), dim = 1)
+
+    assert torch.allclose(out_parallel, out_seq, atol = 1e-5)
+
+def test_caching_when_inputs_not_include_past_continuous():
+
+    from torch.nn import GRU
+    from x_transformers.continuous import ContinuousTransformerWrapper
+
+    model = ContinuousTransformerWrapper(
+        dim_in = 77,
+        max_seq_len = 1024,
+        attn_layers = Decoder(
+            dim = 128,
+            depth = 6,
+            heads = 8,
+            attn_dim_head = 64,
+            rotary_pos_emb = False,
+            attn_hybrid_fold_axial_dim = 1,
+            attn_hybrid_module = GRU(128, 64 * 8, batch_first = True)
+        )
+    )
+
+    x = torch.randn(1, 4, 77)
+
+    out_parallel = model(x)
+
+    x1, x2, x3 = x[:, :2], x[:, 2:3], x[:, 3:4]
+
+    out1, cache = model(x1, return_intermediates = True)
+    out2, cache = model(x2, cache = cache, return_intermediates = True, input_not_include_cache = True)
+    out3, cache = model(x3, cache = cache, return_intermediates = True, input_not_include_cache = True)
+
+    out_seq = torch.cat((out1, out2, out3), dim = 1)
+
+    assert torch.allclose(out_parallel, out_seq, atol = 1e-5)
+
 def test_multi_latent_attention():
     model = TransformerWrapper(
         num_tokens = 20000,
@@ -847,3 +945,268 @@ def test_custom_ff_activation():
     logits = model(seq)
 
     assert logits.shape == (2, 1024, 20000)
+
+def test_ff_deep_embed():
+
+    model = TransformerWrapper(
+        num_tokens = 20000,
+        max_seq_len = 1024,
+        ff_deep_embed = True,
+        attn_layers = Decoder(
+            dim = 512,
+            depth = 6,
+            heads = 8,
+            rotary_pos_emb = True,
+        )
+    )
+
+    seq = torch.randint(0, 20000, (2, 1024))
+
+    logits = model(seq)
+
+    assert logits.shape == (2, 1024, 20000)
+
+@pytest.mark.parametrize('probabilistic', (False, True))
+@pytest.mark.parametrize('cache_kv', (False, True))
+@pytest.mark.parametrize('rollout_steps', (1, 4))
+def test_continuous(
+    probabilistic,
+    cache_kv,
+    rollout_steps
+):
+    from x_transformers import (
+        ContinuousTransformerWrapper,
+        Decoder,
+        ContinuousAutoregressiveWrapper
+    )
+
+    model = ContinuousTransformerWrapper(
+        dim_in = 777,
+        dim_out = 777,
+        max_seq_len = 1024,
+        probabilistic = probabilistic,
+        attn_layers = Decoder(
+            dim = 512,
+            depth = 12,
+            heads = 8
+        )
+    )
+
+    # wrap it with the continuous autoregressive wrapper
+
+    model = ContinuousAutoregressiveWrapper(model)
+
+    # mock data
+
+    x = torch.randn((1, 1024, 777))
+    mask = torch.ones(1, 1024).bool()
+
+    # train on a lot of data above
+
+    loss = model(x, mask = mask, rollout_steps = rollout_steps)
+    loss.backward()
+
+    # then generate
+
+    start_emb = torch.randn(1, 777)
+    generated = model.generate(start_emb, 17, cache_kv = cache_kv) # (17, 777)
+    assert generated.shape == (17, 777)
+
+@pytest.mark.parametrize('add_continuous_pred_head', (False, True))
+def test_autoregressive_wrapper(
+    add_continuous_pred_head
+):
+
+    from x_transformers import AutoregressiveWrapper
+
+    model = TransformerWrapper(
+        num_tokens = 20000,
+        max_seq_len = 1024,
+        add_continuous_pred_head = add_continuous_pred_head,
+        attn_layers = Decoder(
+            dim = 512,
+            depth = 6,
+            heads = 8,
+        )
+    )
+
+    x = torch.randint(0, 20000, (2, 1024))
+
+    wrapper = AutoregressiveWrapper(model)
+    loss = wrapper(x)
+
+    loss.backward()
+
+def test_prepend_embed():
+
+    from x_transformers import AutoregressiveWrapper
+
+    model = TransformerWrapper(
+        num_tokens = 256,
+        max_seq_len = 1024,
+        attn_layers = Decoder(
+            dim = 512,
+            depth = 12,
+            heads = 8
+        )
+    )
+
+    model = AutoregressiveWrapper(model)
+
+    x = torch.randint(0, 256, (2, 10))
+    prepend_embeds = torch.randn(2, 3, 512)
+    prepend_mask = torch.randint(0, 2, (2, 3)).bool()
+
+    loss = model(x, prepend_mask = prepend_mask, prepend_embeds = prepend_embeds)
+    loss.backward()
+
+    sample = model.generate(
+        prompts = x[:, :1],
+        seq_len = 100,
+        temperature = 0.,
+        prepend_embeds = prepend_embeds,
+        prepend_mask = prepend_mask,
+        cache_kv = True,
+    )
+
+    sample_no_cache = model.generate(
+        prompts = x[:, :1],
+        seq_len = 100,
+        temperature = 0.,
+        prepend_embeds = prepend_embeds,
+        prepend_mask = prepend_mask,
+        cache_kv = False,
+    )
+
+    assert torch.allclose(sample, sample_no_cache)
+
+def add_attn_pool():
+
+    model = TransformerWrapper(
+        num_tokens = 256,
+        max_seq_len = 1024,
+        attn_pool = True,
+        num_pooled_tokens =  3,
+        attn_layers = Decoder(
+            dim = 512,
+            depth = 12,
+            heads = 8
+        ),
+    )
+
+    x = torch.randint(0, 256, (1, 10))
+
+    logits, intermediates = model(x, return_intermediates = True)
+
+    assert intermediates.attn_pooled_tokens.shape[1] == 3
+
+@pytest.mark.parametrize('keep_buffer_on_cpu', (False, True))
+def test_up(
+    keep_buffer_on_cpu
+):
+    from x_transformers.up_wrapper import UniversalPretrainWrapper
+
+    model = TransformerWrapper(
+        num_tokens = 256,
+        max_seq_len = 1024,
+        attn_pool = True,
+        attn_layers = Decoder(
+            dim = 512,
+            depth = 12,
+            heads = 8
+        ),
+    )
+
+    up_wrapper = UniversalPretrainWrapper(
+        model,
+        seq_len = 16,
+        keep_buffer_on_cpu = keep_buffer_on_cpu
+    )
+
+    loss = up_wrapper()
+    loss.backward()
+
+@pytest.mark.parametrize('stochastic', (False, True))
+def test_beam_search(stochastic):
+    from x_transformers import TransformerWrapper, Decoder, AutoregressiveWrapper
+
+    model = TransformerWrapper(
+        num_tokens = 256,
+        max_seq_len = 1024,
+        attn_layers = Decoder(
+            dim = 512,
+            depth = 12,
+            heads = 8
+        ),
+    )
+
+    x = torch.randint(0, 256, (2, 10))
+
+    wrapper = AutoregressiveWrapper(model)
+
+    generated = wrapper.beam_search(x[:, :1], 10, beams = 4, stochastic = stochastic)
+
+    assert generated.shape == (2, 10)
+
+    beams, scores = wrapper.beam_search(x[:, :1], 10, beams = 4, return_beams_and_scores = True, stochastic = stochastic)
+
+    assert beams.shape == (4, 2, 10)
+    assert scores.shape == (4, 2)
+
+
+@pytest.mark.parametrize('num_pooled_tokens', (1, 3))
+@pytest.mark.parametrize('attn_pool_depth', (1, 3))
+def test_attn_pooler(
+    num_pooled_tokens,
+    attn_pool_depth
+):
+
+    model = TransformerWrapper(
+        num_tokens = 256,
+        max_seq_len = 1024,
+        attn_pool = True,
+        num_pooled_tokens =  num_pooled_tokens,
+        attn_pool_depth = attn_pool_depth,
+        dim_pooled_tokens = 77,
+        attn_layers = Encoder(
+            dim = 512,
+            depth = 12,
+            heads = 8,
+            attn_value_rmsnorm = True
+        ),
+    )
+
+    x = torch.randint(0, 256, (2, 10))
+
+    out = model(x)
+
+    assert out.shape == (2, num_pooled_tokens, 77)
+
+def test_prompts_given_as_list_tensor():
+    from x_transformers import AutoregressiveWrapper
+
+    model = TransformerWrapper(
+        num_tokens = 20000,
+        max_seq_len = 1024,
+        attn_layers = Decoder(
+            dim = 512,
+            depth = 12,
+            heads = 8
+        )
+    )
+
+    wrapped = AutoregressiveWrapper(model)
+
+    seq = torch.randint(0, 20000, (3, 1024))
+
+    loss = wrapped(seq)
+    loss.backward()
+
+    sampled = wrapped.generate([
+        torch.randint(0, 20000, (3,)),
+        torch.randint(0, 20000, (5,)),
+        torch.randint(0, 20000, (2,)),
+        torch.randint(0, 20000, (7,)),
+    ], 256)
+
+    assert sampled.shape == (4, 256)
