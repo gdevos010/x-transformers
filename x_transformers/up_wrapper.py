@@ -9,31 +9,33 @@ import torch
 from torch import nn, cat, tensor, randperm
 from torch.nn import LSTM, GRU, Module
 
-from x_transformers.x_transformers import (
-    TransformerWrapper,
-    AutoregressiveWrapper
-)
+from x_transformers.x_transformers import TransformerWrapper, AutoregressiveWrapper
 
 # functions
+
 
 def exists(v):
     return v is not None
 
+
 def default(v, d):
     return v if exists(v) else d
+
 
 def divisible_by(num, den):
     return (num % den) == 0
 
+
 # random sequences, mixture of random and constant (unsure why constant is needed)
+
 
 def random_sequences(
     num_tokens,
     seq_len,
     num_samples_random,
     num_samples_constant,
-    shuffle = True,
-    device = None
+    shuffle=True,
+    device=None,
 ):
     assert num_samples_random > 0 or num_samples_constant > 0
 
@@ -50,20 +52,22 @@ def random_sequences(
 
     # shuffle with randperm
 
-    rand_indices = randperm(all_seq.shape[0], device = all_seq.device)
+    rand_indices = randperm(all_seq.shape[0], device=all_seq.device)
     return all_seq[rand_indices]
 
+
 # synthetic data generator
+
 
 class SyntheticDataGenerator(Module):
     def __init__(
         self,
         dim,
         num_tokens,
-        max_seq_len = 512,
-        hidden_size = None,
-        use_gru = False,
-        network_klass = None
+        max_seq_len=512,
+        hidden_size=None,
+        use_gru=False,
+        network_klass=None,
     ):
         super().__init__()
 
@@ -73,18 +77,18 @@ class SyntheticDataGenerator(Module):
 
         hidden_size = default(hidden_size, dim)
 
-        default_network_klass = partial(LSTM if not use_gru else GRU, batch_first = True)
+        default_network_klass = partial(LSTM if not use_gru else GRU, batch_first=True)
         network_klass = default(network_klass, default_network_klass)
 
         self.net = network_klass(dim, hidden_size)
 
-        self.to_logits = nn.Linear(dim, num_tokens, bias = False)
+        self.to_logits = nn.Linear(dim, num_tokens, bias=False)
 
         self.apply(self.init_)
 
     def reset_(self):
         for m in self.modules():
-            if hasattr(m, 'reset_parameters'):
+            if hasattr(m, "reset_parameters"):
                 m.reset_parameters()
 
         self.apply(self.init_)
@@ -92,46 +96,40 @@ class SyntheticDataGenerator(Module):
     @torch.no_grad()
     def init_(self, m):
         if isinstance(m, nn.Linear):
-            m.weight *= uniform(0., 1.1) # he scales the lstm weights from 0 to 1.1
+            m.weight *= uniform(0.0, 1.1)  # he scales the lstm weights from 0 to 1.1
 
     @torch.inference_mode()
     @torch.compile
     def generate(
         self,
         length,
-        seed = None,
-        condition = None,
-        temperature = 1e-4 # he uses a near greedy temperature
+        seed=None,
+        condition=None,
+        temperature=1e-4,  # he uses a near greedy temperature
     ):
         assert exists(seed) or exists(condition)
         prefix = [*filter(exists, (seed, condition))]
         seq_len = self.max_seq_len
 
-        seq = torch.cat(prefix, dim = -1)
+        seq = torch.cat(prefix, dim=-1)
 
         net_input = seq
         hiddens = None
 
         for _ in range(length):
-
             logits, hiddens = self.forward(net_input, hiddens)
 
             last_logit = logits[:, -1]
-            prob = (last_logit / temperature).softmax(dim = -1)
+            prob = (last_logit / temperature).softmax(dim=-1)
 
             sampled = torch.multinomial(prob, 1)
             net_input = sampled
 
-            seq = torch.cat((seq, sampled), dim = -1)
+            seq = torch.cat((seq, sampled), dim=-1)
 
         return seq[:, -seq_len:]
 
-    def forward(
-        self,
-        input,
-        hiddens = None
-    ):
-
+    def forward(self, input, hiddens=None):
         tokens = self.embed(input)
 
         embed, hidden = self.net(tokens, hiddens)
@@ -140,20 +138,22 @@ class SyntheticDataGenerator(Module):
 
         return logits, hidden
 
+
 # classes
+
 
 class UniversalPretrainWrapper(Module):
     def __init__(
         self,
         model: TransformerWrapper,
         data_generator: SyntheticDataGenerator | Module | None = None,
-        buffer_size = None,
-        num_reset = 20,
-        batch_size = 32,
-        seq_len = 512,
-        seed_length = 8,
-        reset_turing_machine_every = 0,
-        keep_buffer_on_cpu = False
+        buffer_size=None,
+        num_reset=20,
+        batch_size=32,
+        seq_len=512,
+        seed_length=8,
+        reset_turing_machine_every=0,
+        keep_buffer_on_cpu=False,
     ):
         super().__init__()
 
@@ -167,9 +167,7 @@ class UniversalPretrainWrapper(Module):
 
         if not exists(data_generator):
             data_generator = SyntheticDataGenerator(
-                num_tokens = num_tokens,
-                dim = dim,
-                max_seq_len = seq_len
+                num_tokens=num_tokens, dim=dim, max_seq_len=seq_len
             )
 
         self.reset_turing_machine_every = reset_turing_machine_every
@@ -181,7 +179,9 @@ class UniversalPretrainWrapper(Module):
         self.batch_size = batch_size
 
         buffer_size = default(buffer_size, batch_size * 20)
-        assert buffer_size > batch_size, f'data buffer size must be greater than batch size'
+        assert buffer_size > batch_size, (
+            "data buffer size must be greater than batch size"
+        )
 
         assert divisible_by(num_reset, 2)
         self.num_reset = num_reset
@@ -195,17 +195,17 @@ class UniversalPretrainWrapper(Module):
         if keep_buffer_on_cpu:
             self.synth_data_buffer = init_data_buffer
         else:
-            self.register_buffer('synth_data_buffer', init_data_buffer)
+            self.register_buffer("synth_data_buffer", init_data_buffer)
 
-        self.register_buffer('step', tensor(0))
+        self.register_buffer("step", tensor(0))
 
     @property
     def device(self):
         return self.step.device
 
-    def get_rand_sequences_from_buffer(self, size = None):
+    def get_rand_sequences_from_buffer(self, size=None):
         size = default(size, self.batch_size)
-        rand_indices = randperm(self.buffer_size, device = self.device)[:size]
+        rand_indices = randperm(self.buffer_size, device=self.device)[:size]
         return self.synth_data_buffer[rand_indices]
 
     def forward(self):
@@ -218,25 +218,29 @@ class UniversalPretrainWrapper(Module):
         seeds = self.get_rand_sequences_from_buffer()
 
         seq_arange = torch.arange(self.seed_length)
-        rand_offset = torch.randint(0, self.seq_len - self.seed_length, (self.batch_size,))
+        rand_offset = torch.randint(
+            0, self.seq_len - self.seed_length, (self.batch_size,)
+        )
         seq_start_pos = rand_offset[:, None] + seq_arange
 
-        batch_arange = torch.arange(self.batch_size, device = self.device)[:, None]
+        batch_arange = torch.arange(self.batch_size, device=self.device)[:, None]
         seeds = seeds[batch_arange, seq_start_pos]
 
         # seed, condition to turing machine
 
         generated = self.data_generator.generate(
             self.seq_len,
-            condition = conditions.to(self.device),
-            seed = seeds.to(self.device)
+            condition=conditions.to(self.device),
+            seed=seeds.to(self.device),
         )
 
         self.step.add_(1)
 
         # maybe reset turing machine
 
-        if self.reset_turing_machine_every > 0 and divisible_by(self.step.item(), self.reset_turing_machine_every):
+        if self.reset_turing_machine_every > 0 and divisible_by(
+            self.step.item(), self.reset_turing_machine_every
+        ):
             self.data_generator.reset_()
 
         # reset
@@ -245,7 +249,9 @@ class UniversalPretrainWrapper(Module):
             buffer_to_reset = self.get_rand_sequences_from_buffer(self.num_reset)
 
             with torch.no_grad():
-                reset_sequences = self.random_sequences_fn(self.num_reset // 2, self.num_reset // 2, device = self.device)
+                reset_sequences = self.random_sequences_fn(
+                    self.num_reset // 2, self.num_reset // 2, device=self.device
+                )
                 buffer_to_reset.copy_(reset_sequences)
 
         # place "enriched" random generated sequences back

@@ -6,34 +6,38 @@ import torch.nn.functional as F
 from x_transformers.x_transformers import TransformerWrapper
 
 import einx
-from einops import rearrange
 
 # helper functions
 
+
 def exists(v):
     return v is not None
+
 
 def freeze_all_layers_(module):
     for param in module.parameters():
         param.requires_grad = False
 
+
 def log_prob_from_model_and_seq(model, seq):
     src_seq, tgt_seq = seq[:, :-1], seq[:, 1:]
     logits = model(src_seq)
-    log_prob = logits.log_softmax(dim = -1)
-    return einx.get_at('b n [l], b n -> b n', log_prob, tgt_seq)
+    log_prob = logits.log_softmax(dim=-1)
+    return einx.get_at("b n [l], b n -> b n", log_prob, tgt_seq)
 
-def masked_mean(log_probs, mask = None):
+
+def masked_mean(log_probs, mask=None):
     if not exists(mask):
-        return log_probs.mean(dim = -1)
+        return log_probs.mean(dim=-1)
 
     if mask.shape[-1] == (log_probs.shape[-1] + 1):
         mask = mask[:, :-1]
 
-    log_probs = log_probs.masked_fill(~mask, 0.)
-    num = log_probs.sum(dim = -1)
-    den = mask.sum(dim = -1)
-    return num / den.clamp(min = 1e-5)
+    log_probs = log_probs.masked_fill(~mask, 0.0)
+    num = log_probs.sum(dim=-1)
+    den = mask.sum(dim=-1)
+    return num / den.clamp(min=1e-5)
+
 
 def maybe_and_mask(*masks):
     masks = [*filter(exists, masks)]
@@ -46,16 +50,12 @@ def maybe_and_mask(*masks):
 
     return mask
 
+
 # main class
 
+
 class DPO(Module):
-    def __init__(
-        self,
-        model: TransformerWrapper,
-        *,
-        beta = 0.1,
-        pad_id = None
-    ):
+    def __init__(self, model: TransformerWrapper, *, beta=0.1, pad_id=None):
         super().__init__()
         self.policy_model = model
 
@@ -74,8 +74,8 @@ class DPO(Module):
         unpreferred_seq,
         *,
         prompt_mask,
-        preferred_seq_mask = None,
-        unpreferred_seq_mask = None,
+        preferred_seq_mask=None,
+        unpreferred_seq_mask=None,
     ):
         assert preferred_seq.ndim == 2
         assert preferred_seq.shape == unpreferred_seq.shape
@@ -93,19 +93,33 @@ class DPO(Module):
 
         with torch.no_grad():
             self.ref_model.eval()
-            ref_preferred_logprob = log_prob_from_model_and_seq(self.ref_model, preferred_seq)
-            ref_unpreferred_logprob = log_prob_from_model_and_seq(self.ref_model, unpreferred_seq)
+            ref_preferred_logprob = log_prob_from_model_and_seq(
+                self.ref_model, preferred_seq
+            )
+            ref_unpreferred_logprob = log_prob_from_model_and_seq(
+                self.ref_model, unpreferred_seq
+            )
 
-        policy_preferred_logprob = log_prob_from_model_and_seq(self.policy_model, preferred_seq)
-        policy_unpreferred_logprob = log_prob_from_model_and_seq(self.policy_model, unpreferred_seq)
+        policy_preferred_logprob = log_prob_from_model_and_seq(
+            self.policy_model, preferred_seq
+        )
+        policy_unpreferred_logprob = log_prob_from_model_and_seq(
+            self.policy_model, unpreferred_seq
+        )
 
         # masked mean of log probs
 
         preferred_seq_mask = maybe_and_mask(~prompt_mask, preferred_seq_mask)
         unpreferred_seq_mask = maybe_and_mask(~prompt_mask, unpreferred_seq_mask)
 
-        ref_preferred_logprob, policy_preferred_logprob = map(lambda t: masked_mean(t, preferred_seq_mask), (ref_preferred_logprob, policy_preferred_logprob))
-        ref_unpreferred_logprob, policy_unpreferred_logprob = map(lambda t: masked_mean(t, unpreferred_seq_mask), (ref_unpreferred_logprob, policy_unpreferred_logprob))
+        ref_preferred_logprob, policy_preferred_logprob = map(
+            lambda t: masked_mean(t, preferred_seq_mask),
+            (ref_preferred_logprob, policy_preferred_logprob),
+        )
+        ref_unpreferred_logprob, policy_unpreferred_logprob = map(
+            lambda t: masked_mean(t, unpreferred_seq_mask),
+            (ref_unpreferred_logprob, policy_unpreferred_logprob),
+        )
 
         # main dpo formula
 

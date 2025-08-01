@@ -19,31 +19,36 @@ from x_transformers.x_transformers import (
     TokenEmbedding,
     ScaledSinusoidalEmbedding,
     AbsolutePositionalEmbedding,
-    always
+    always,
 )
 
-from x_transformers.autoregressive_wrapper import (
-    top_k,
-    top_p
-)
+from x_transformers.autoregressive_wrapper import top_k
 
 # constants
 
-LossBreakdown = namedtuple('LossBreakdown', ['cross_entropy_loss', 'numerical_mse_loss'])
+LossBreakdown = namedtuple(
+    "LossBreakdown", ["cross_entropy_loss", "numerical_mse_loss"]
+)
 
-GenerateReturn = namedtuple('GenerateReturn', ['sampled_token_ids', 'sampled_numbers', 'is_number_mask'])
+GenerateReturn = namedtuple(
+    "GenerateReturn", ["sampled_token_ids", "sampled_numbers", "is_number_mask"]
+)
 
 # helper functions
 
+
 def exists(val):
     return val is not None
+
 
 def default(val, d):
     if exists(val):
         return val
     return d() if callable(d) else d
 
+
 # main classes
+
 
 class XValTransformerWrapper(nn.Module):
     def __init__(
@@ -53,14 +58,14 @@ class XValTransformerWrapper(nn.Module):
         max_seq_len,
         numerical_token_id,
         attn_layers: AttentionLayers,
-        emb_dim = None,
-        logits_dim = None,
-        tie_embedding = False,
-        max_mem_len = 0,
-        num_memory_tokens = None,
-        emb_dropout = 0.,
-        use_abs_pos_emb = True,
-        scaled_sinu_pos_emb = False
+        emb_dim=None,
+        logits_dim=None,
+        tie_embedding=False,
+        max_mem_len=0,
+        num_memory_tokens=None,
+        emb_dropout=0.0,
+        use_abs_pos_emb=True,
+        scaled_sinu_pos_emb=False,
     ):
         super().__init__()
         dim = attn_layers.dim
@@ -99,26 +104,29 @@ class XValTransformerWrapper(nn.Module):
         # to logits
 
         logits_dim = default(logits_dim, num_tokens)
-        self.to_logits = nn.Linear(dim, logits_dim) if not tie_embedding else lambda t: t @ self.token_emb.emb.weight.t()
+        self.to_logits = (
+            nn.Linear(dim, logits_dim)
+            if not tie_embedding
+            else lambda t: t @ self.token_emb.emb.weight.t()
+        )
 
         self.to_numerical_output = nn.Sequential(
-            nn.Linear(dim, 1),
-            Rearrange('... 1 -> ...')
+            nn.Linear(dim, 1), Rearrange("... 1 -> ...")
         )
 
     def forward(
         self,
         x: Tensor,
         x_num: Tensor,
-        return_embeddings = False,
-        return_intermediates = False,
-        return_mems = False,
-        mask = None,
-        return_attn = False,
-        mems = None,
-        pos = None,
-        prepend_embeds = None,
-        **kwargs
+        return_embeddings=False,
+        return_intermediates=False,
+        return_mems=False,
+        mask=None,
+        return_attn=False,
+        mems=None,
+        pos=None,
+        prepend_embeds=None,
+        **kwargs,
     ):
         assert x.shape == x_num.shape
 
@@ -128,41 +136,45 @@ class XValTransformerWrapper(nn.Module):
 
         x = self.token_emb(x)
 
-        scale = torch.where(is_number_mask, x_num, 1.)
-        scale = rearrange(scale, '... -> ... 1')
+        scale = torch.where(is_number_mask, x_num, 1.0)
+        scale = rearrange(scale, "... -> ... 1")
 
         x = x * scale
 
-        x = x + self.pos_emb(x, pos = pos)
+        x = x + self.pos_emb(x, pos=pos)
 
         # memory tokens
 
         if self.has_memory_tokens:
-            m = repeat(self.memory_tokens, 'm d -> b m d', b = batch)
-            x, mem_ps = pack([m, x], 'b * d')
+            m = repeat(self.memory_tokens, "m d -> b m d", b=batch)
+            x, mem_ps = pack([m, x], "b * d")
 
             if exists(mask):
                 num_mems = m.shape[-2]
-                mask = pad_at_dim(mask, (num_mems, 0), dim = -1, value = True)
+                mask = pad_at_dim(mask, (num_mems, 0), dim=-1, value=True)
 
         # whether to append embeds, as in PaLI, for image embeddings
 
         if exists(prepend_embeds):
             _, prepend_dim = prepend_embeds.shape[1:]
-            assert prepend_dim == x.shape[-1], 'prepended embeddings need to have same dimensions as model dimensions'
+            assert prepend_dim == x.shape[-1], (
+                "prepended embeddings need to have same dimensions as model dimensions"
+            )
 
-            x = torch.cat((prepend_embeds, x), dim = -2)
+            x = torch.cat((prepend_embeds, x), dim=-2)
 
         x = self.emb_dropout(x)
 
         # attention layers
 
-        x, intermediates = self.attn_layers(x, mask = mask, mems = mems, return_hiddens = True, **kwargs)
+        x, intermediates = self.attn_layers(
+            x, mask=mask, mems=mems, return_hiddens=True, **kwargs
+        )
 
         # splice out memory tokens
 
         if self.has_memory_tokens:
-            m, x = unpack(x, mem_ps, 'b * d')
+            m, x = unpack(x, mem_ps, "b * d")
             intermediates.memory_tokens = m
 
         if not return_embeddings:
@@ -177,22 +189,25 @@ class XValTransformerWrapper(nn.Module):
 
         if return_mems:
             hiddens = intermediates.hiddens
-            new_mems = tuple(t[..., -self.max_mem_len:, :].detach() for t in hiddens)
+            new_mems = tuple(t[..., -self.max_mem_len :, :].detach() for t in hiddens)
             return out, new_mems
 
         if return_attn:
-            attn_maps = tuple(t.post_softmax_attn for t in intermediates.attn_intermediates)
+            attn_maps = tuple(
+                t.post_softmax_attn for t in intermediates.attn_intermediates
+            )
             return out, attn_maps
 
         return out
+
 
 class XValAutoregressiveWrapper(nn.Module):
     def __init__(
         self,
         net: XValTransformerWrapper,
-        ignore_index = -100,
-        pad_value = 0,
-        numerical_loss_weight = 1.
+        ignore_index=-100,
+        pad_value=0,
+        numerical_loss_weight=1.0,
     ):
         super().__init__()
         self.net = net
@@ -208,14 +223,16 @@ class XValAutoregressiveWrapper(nn.Module):
         seq_len,
         filter_logits_fn: Callable = top_k,
         filter_kwargs: dict = dict(),
-        temperature = 1.,
-        **kwargs
+        temperature=1.0,
+        **kwargs,
     ):
         device = start_tokens.device
         was_training = self.net.training
         num_dims = len(start_tokens.shape)
 
-        assert num_dims >= 2, 'number of dimensions of your start tokens must be greater or equal to 2'
+        assert num_dims >= 2, (
+            "number of dimensions of your start tokens must be greater or equal to 2"
+        )
         assert start_tokens.shape == start_numbers.shape
 
         b, t, device = *start_tokens.shape, start_tokens.device
@@ -225,8 +242,8 @@ class XValAutoregressiveWrapper(nn.Module):
         num_out = start_numbers
 
         for _ in range(seq_len):
-            x = out[:, -self.max_seq_len:]
-            x_num = num_out[:, -self.max_seq_len:]
+            x = out[:, -self.max_seq_len :]
+            x_num = num_out[:, -self.max_seq_len :]
 
             logits, numerical_pred = self.net(x, x_num, **kwargs)
 
@@ -239,25 +256,19 @@ class XValAutoregressiveWrapper(nn.Module):
 
             sample = torch.multinomial(probs, 1)
 
-            out = torch.cat((out, sample), dim = -1)
-            num_out = torch.cat((num_out, last_num_pred), dim = -1)
+            out = torch.cat((out, sample), dim=-1)
+            num_out = torch.cat((num_out, last_num_pred), dim=-1)
 
         out = out[:, t:]
         num_out = num_out[:, t:]
 
         is_number = out == self.net.numerical_token_id
-        num_out = torch.where(is_number, num_out, float('nan'))
+        num_out = torch.where(is_number, num_out, float("nan"))
 
         self.net.train(was_training)
         return GenerateReturn(out, num_out, is_number)
 
-    def forward(
-        self,
-        x: Tensor,
-        x_num: Tensor,
-        return_loss_breakdown = False,
-        **kwargs
-    ):
+    def forward(self, x: Tensor, x_num: Tensor, return_loss_breakdown=False, **kwargs):
         inp, target = x[:, :-1], x[:, 1:]
         x_num_inp, x_num_target = x_num[:, :-1], x_num[:, 1:]
 
@@ -267,31 +278,33 @@ class XValAutoregressiveWrapper(nn.Module):
 
         # key padding mask
 
-        mask = kwargs.get('mask', None)
+        mask = kwargs.get("mask", None)
         if exists(mask):
             target_mask &= mask
 
             if mask.shape[1] == x.shape[1]:
                 mask = mask[:, :-1]
-                kwargs['mask'] = mask
+                kwargs["mask"] = mask
 
         logits, numerical_pred = self.net(inp, x_num_inp, **kwargs)
 
-        logits = rearrange(logits, 'b n c -> b c n')
+        logits = rearrange(logits, "b n c -> b c n")
 
-        cross_entropy_loss = F.cross_entropy(logits, target, reduction = 'none', ignore_index = self.ignore_index)
+        cross_entropy_loss = F.cross_entropy(
+            logits, target, reduction="none", ignore_index=self.ignore_index
+        )
 
         # protect against nan in `x_num` input tensor
 
         target_is_number_mask = target == self.net.numerical_token_id
-        x_num_target = x_num_target.masked_fill(~target_is_number_mask, 0.)
+        x_num_target = x_num_target.masked_fill(~target_is_number_mask, 0.0)
 
         # numerical mse loss
 
-        numerical_mse_loss = F.mse_loss(numerical_pred, x_num_target, reduction = 'none')
+        numerical_mse_loss = F.mse_loss(numerical_pred, x_num_target, reduction="none")
 
         numerical_mse_loss = numerical_mse_loss * target_mask
-        numerical_mse_loss = numerical_mse_loss.masked_fill(~target_is_number_mask, 0.)
+        numerical_mse_loss = numerical_mse_loss.masked_fill(~target_is_number_mask, 0.0)
 
         # combine losses
 
