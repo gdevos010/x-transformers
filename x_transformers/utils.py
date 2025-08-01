@@ -1,8 +1,12 @@
 # init helpers
 
 
+from torch._tensor import Tensor
 from torch import nn
 from functools import wraps
+import torch
+import torch.nn.functional as F
+from einops import rearrange
 
 # helpers
 
@@ -50,12 +54,12 @@ def maybe(fn=None):
     return inner
 
 
-def at_most_one_of(*bools):
+def at_most_one_of(*bools) -> bool:
     return sum(map(int, bools)) <= 1
 
 
 class always:
-    def __init__(self, val):
+    def __init__(self, val) -> None:
         self.val = val
 
     def __call__(self, *args, **kwargs):
@@ -63,7 +67,7 @@ class always:
 
 
 class not_equals:
-    def __init__(self, val):
+    def __init__(self, val) -> None:
         self.val = val
 
     def __call__(self, x, *args, **kwargs):
@@ -71,7 +75,7 @@ class not_equals:
 
 
 class equals:
-    def __init__(self, val):
+    def __init__(self, val) -> None:
         self.val = val
 
     def __call__(self, x, *args, **kwargs):
@@ -82,7 +86,56 @@ def Sequential(*modules):
     return nn.Sequential(*filter(exists, modules))
 
 
-def init_zero_(layer):
+def init_zero_(layer) -> None:
     nn.init.constant_(layer.weight, 0.0)
     if exists(layer.bias):
         nn.init.constant_(layer.bias, 0.0)
+
+
+# tensor helpers
+
+
+def log(t, eps=1e-20):
+    return t.clamp(min=eps).log()
+
+
+def max_neg_value(tensor) -> float:
+    return -torch.finfo(tensor.dtype).max
+
+
+def l2norm(t, groups=1) -> Tensor:
+    t = rearrange(t, "... (g d) -> ... g d", g=groups)
+    t = F.normalize(t, p=2, dim=-1)
+    return rearrange(t, "... g d -> ... (g d)")
+
+
+def softclamp(t, value):
+    return (t / value).tanh() * value
+
+
+def masked_mean(t, mask=None, dim=1):
+    if not exists(mask):
+        return t.mean(dim=dim)
+
+    dims_append = (1,) * (t.ndim - mask.ndim)
+    mask = mask.reshape(*mask.shape, *dims_append)
+
+    num = (t * mask).sum(dim=dim)
+    den = mask.sum(dim=dim).clamp(min=1.0)
+    return num / den
+
+
+def pad_at_dim(t, pad: tuple[int, int], dim=-1, value=0.0):
+    if pad == (0, 0):
+        return t
+
+    dims_from_right = (-dim - 1) if dim < 0 else (t.ndim - dim - 1)
+    zeros = (0, 0) * dims_from_right
+    return F.pad(t, (*zeros, *pad), value=value)
+
+
+def or_reduce(masks):
+    head, *body = masks
+    for rest in body:
+        head = head | rest
+    return head
