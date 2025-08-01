@@ -7,6 +7,7 @@ from torch.nn import Module, ModuleDict
 from typing import Dict
 
 from einops import pack, repeat, unpack
+from x_transformers.utils import always, is_empty, exists, default
 
 from x_transformers.x_transformers import (
     AttentionLayers,
@@ -14,22 +15,10 @@ from x_transformers.x_transformers import (
     AbsolutePositionalEmbedding,
     LayerIntermediates,
     LayerNorm,
-    always,
     pad_at_dim,
-    is_empty,
 )
 
 # helper functions
-
-
-def exists(val):
-    return val is not None
-
-
-def default(val, d):
-    if exists(val):
-        return val
-    return d() if callable(d) else d
 
 
 class MultiInputTransformerWrapper(Module):
