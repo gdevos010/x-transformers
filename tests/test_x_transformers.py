@@ -1210,3 +1210,28 @@ def test_prompts_given_as_list_tensor():
     ], 256)
 
     assert sampled.shape == (4, 256)
+
+def test_external_key_values():
+    from x_transformers import AutoregressiveWrapper
+
+    model = TransformerWrapper(
+        num_tokens = 20000,
+        max_seq_len = 1024,
+        attn_layers = Decoder(
+            dim = 512,
+            depth = 2,
+            heads = 8,
+            attn_dim_head = 16
+        )
+    )
+
+    seq = torch.randint(0, 20000, (3, 1024))
+
+    key_values = [
+        (torch.randn(3, 8, 32, 16), torch.randn(3, 8, 32, 16)),
+        (torch.randn(3, 8, 32, 16), torch.randn(3, 8, 32, 16)),
+    ]
+
+    additional_kv_mask = torch.randint(0, 2, (3, 32)).bool()
+
+    logits = model(seq, self_attn_additional_kv = key_values, additional_kv_mask = additional_kv_mask)
