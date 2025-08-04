@@ -52,6 +52,8 @@ lint.ignore = [
     # pycodestyle-warning
     "W505", # doc-line-too-long
 
+    "PLR0913", # too many arguments
+
 ]
 
 
